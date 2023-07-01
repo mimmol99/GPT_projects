@@ -13,9 +13,14 @@ from datetime import datetime
 
 import sys
 
-#sys.path.append(os.path.abspath(os.path.join(os.getcwd(), "..", "..")))
+# Get the absolute path to the parent directory
+parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-from .directory_request import request_file_path, request_file_paths
+# Add it to the Python path
+sys.path.insert(0, parent_dir)
+
+from SHARED_FILES.directory_request import request_file_path, request_file_paths
+
 from SHARED_FILES.request_gpt import request_gpt
 
 def create_directory(directory_name):
@@ -51,18 +56,19 @@ def transcription_pptx(file_path, doc):
                     # Remove non-XML compatible characters
                     text = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f]', '', shape.text)
                     if len(text) > 50:
-                        text = request_gpt("spiega e approfondisci (in italiano)questo testo: " + text)
+                        text = request_gpt("spiega e approfondisci questo testo: " + text)
                         time.sleep(5)
                     doc.add_paragraph(text)
             
             pbar.update(1)  # Update the progress bar
 
 if __name__ == "__main__":
-    file_paths = request_file_paths("Select one or more pptx files")
+    file_paths = request_file_paths("Select one or more pptx files to be explained")
 
     # Create a new directory based on current time
-    output_directory = datetime.now().strftime("%Y%m%d%H%M%S")
-    create_directory(output_directory)
+    if len(file_paths)>0:
+        output_directory = datetime.now().strftime("%Y%m%d%H%M%S")
+        create_directory(output_directory)
 
     # Create a new Word Document for the transcription
     
@@ -81,6 +87,7 @@ if __name__ == "__main__":
             
         else:
             print(file_path, "is not a pptx, skipping...")
+        print("Explanation completed!")
 		
     # Save the combined transcribed text in a single .docx file
     if len(file_paths) > 1:
@@ -98,4 +105,4 @@ if __name__ == "__main__":
         # Save the combined document as "all_explained.docx"
         combined_doc.save(os.path.join(output_directory, "all_explained.docx"))
 
-    print("Transcription completed!")
+        

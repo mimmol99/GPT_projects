@@ -11,9 +11,11 @@ import subprocess
 
 import sys
 
-sys.path.append(os.path.abspath(os.path.join(current_dir, "..", "..")))
+# Get the absolute path to the parent directory
+parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-
+# Add it to the Python path
+sys.path.insert(0, parent_dir)
 
 from SHARED_FILES.directory_request import request_file_path,request_file_paths
 from SHARED_FILES.request_gpt import request_gpt
@@ -43,24 +45,7 @@ def transcription_pptx(file_path, doc):
             doc.add_heading('Slide ' + str(idx), level=2)
             
             for shape in slide.shapes:
-                """
-                if shape.shape_type == MSO_SHAPE_TYPE.PICTURE:
-                    # Save the picture to a file
-                    image = shape.image
-                    image_bytes = image.blob
-                    
-                    # Convert the image to PNG using PIL
-                    image_bytes = convert_wmf_to_png(image_bytes)
-                    img = PILImage.open(BytesIO(image_bytes))
-                    image_filename = f'tmp_image_{idx}.png'
-                    img.save(image_filename)
-                    
-                    # Add the image to the document
-                    doc.add_picture(image_filename, width=Inches(1.25))
-
-                    # Remove the temporary image file
-                    os.remove(image_filename)
-                """
+                
                 if shape.is_placeholder:
                     # Remove non-XML compatible characters
                     text = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f]', '', shape.text)
@@ -69,7 +54,7 @@ def transcription_pptx(file_path, doc):
             pbar.update(1)  # Update the progress bar
 
 if __name__ == "__main__":
-    file_paths = request_file_paths("Select one or more pptx files")
+    file_paths = request_file_paths("Select one or more pptx files to be transcripted")
     
     # Create a new Word Document for the transcription
     doc = Document()
