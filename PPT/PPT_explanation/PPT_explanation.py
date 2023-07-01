@@ -13,9 +13,9 @@ from datetime import datetime
 
 import sys
 
-sys.path.append(os.path.abspath(os.path.join(os.getcwd(), "..", "..")))
+#sys.path.append(os.path.abspath(os.path.join(os.getcwd(), "..", "..")))
 
-from SHARED_FILES.directory_request import request_file_path, request_file_paths
+from .directory_request import request_file_path, request_file_paths
 from SHARED_FILES.request_gpt import request_gpt
 
 def create_directory(directory_name):

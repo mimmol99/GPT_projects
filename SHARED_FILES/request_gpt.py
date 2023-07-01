@@ -4,11 +4,13 @@ from tkinter import  simpledialog,messagebox
 import requests
 import os
 
-import sys
-sys_path = os.path.abspath(os.path.join(os.getcwd(), "..",".."))
-sys.path.append(sys_path)
-model_path = os.path.join(sys_path,"model.txt")
-openaiapi_path = os.path.join(sys_path,"openaiapi.txt")
+#import sys
+#sys_path = os.path.abspath(os.path.join(os.getcwd(), "..",".."))
+#sys.path.append(sys_path)
+
+base_path = os.getcwd()
+model_path = os.path.join(base_path,"model.txt")
+openaiapi_path = os.path.join(base_path,"openaiapi.txt")
 
 from SHARED_FILES.request_input import request_input
 
