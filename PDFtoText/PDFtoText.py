@@ -1,6 +1,9 @@
 
-from directory_request import request_file_path
-from divide_text_into_chunks import divide_text_into_chunks
+import sys
+sys.path.append(os.path.abspath(os.path.join(os.getcwd(), "..")))
+
+from SHARED_FILES.directory_request import request_file_path
+from SHARED_FILES.divide_text_into_chunks import divide_text_into_chunks
 import os
 
 import PyPDF2

@@ -3,12 +3,12 @@ import openai
 from request_gpt import request_gpt
 from tqdm import tqdm
 
-def summarize_directory(directory_path, summarized_directory_path=None):
+def summarize_files_in_directory(directory_path, file_types = ((".txt")),summarized_directory_path=None):
     summarized_text = ""
     
-    filenames = [f for f in os.listdir(directory_path) if f.endswith('.txt') and "chunk" in f]
+    filenames = [f for f in os.listdir(directory_path) if f.endswith(file_types), and "chunk" in f]
     
-    # Sort filenames based on the number before '.txt'
+    # Sort filenames based on the number before type
     filenames = sorted(filenames, key=lambda f: int(f.rsplit('_', 1)[1].split('.')[0]))
     
     # If no summarized directory path is provided, use the current directory
@@ -33,10 +33,17 @@ def summarize_directory(directory_path, summarized_directory_path=None):
             with open(os.path.join(directory_path, filename), 'r') as file:
                 original_text = file.read()
 
-            string_request = "Riassumi in italiano il seguente testo:"+original_text
-            summarized_text += request_gpt(string_request)
+            summarized_text += summarize_text(original_text)
 
             # Save the translated text
             with open(new_file_path, 'w') as file:
                 file.write(summarized_text)
             print(f"Summarized file {new_filename} created.")
+            
+def summarize_text(text):
+    string_request = "Riassumi il seguente testo: "+original_text
+    return request_gpt(string_request)
+
+           
+            
+
