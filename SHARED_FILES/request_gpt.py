@@ -44,6 +44,9 @@ def request_gpt(model=None, text="", temperature=0.5):
         print(e)
         
                 
+    retrieve_response = openai.Model.retrieve(model)
+    
+    #print(retrieve_response)
     
     completion = openai.ChatCompletion.create(
       model=model,

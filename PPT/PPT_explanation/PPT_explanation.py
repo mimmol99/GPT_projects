@@ -1,4 +1,5 @@
 from docx import Document
+import pptx
 from pptx import Presentation
 from tqdm import tqdm
 import os
@@ -36,8 +37,31 @@ def convert_wmf_to_png(wmf_bytes):
         check=True,
     )
     return process.stdout
+    
+def explain_pptx(file_path):
+    prs = Presentation(file_path)
+    name_prs = os.path.basename(file_path).split(".")[0]
+    slides = prs.slides
+    total_text = ""
+    # Add tqdm progress bar for the loop
+    with tqdm(total=len(slides), desc="Explaining slides") as pbar:
+        for idx, slide in enumerate(slides, 1):
 
-def transcription_pptx(file_path, doc):
+            for shape in slide.shapes:
+                if shape.has_text_frame:
+                    # Remove non-XML compatible characters
+                    text = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f]', '', shape.text_frame.text)
+                    if len(text) > 50:
+                        text = request_gpt("spiega e approfondisci questo testo: " + text)                 
+                        total_text += text
+                        time.sleep(5)
+                    
+            
+            pbar.update(1)  # Update the progress bar
+            
+    return total_text
+    
+def explain_pptx_in_doc(file_path, doc):
     prs = Presentation(file_path)
     name_prs = os.path.basename(file_path).split(".")[0]
     slides = prs.slides
@@ -78,7 +102,7 @@ if __name__ == "__main__":
         doc = Document()
         if file_path.endswith(".pptx"):
             print(file_path, ": explaining...")
-            transcription_pptx(file_path, doc)
+            explain_pptx_in_doc(file_path, doc)
 
             # Save the transcribed text in a .docx file
             name_prs = os.path.basename(file_path).split(".")[0]
