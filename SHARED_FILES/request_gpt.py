@@ -3,14 +3,15 @@ import tkinter as tk
 from tkinter import  simpledialog,messagebox
 import requests
 import os
-
+import tiktoken
+import math
 
 base_path = os.getcwd()
 model_path = os.path.join(base_path,"model.txt")
 openaiapi_path = os.path.join(base_path,"openaiapi.txt")
 
 from SHARED_FILES.request_input import request_input
-
+from SHARED_FILES.rate_limit import find_model_tokens_limit
 
 def copy_to_clipboard(root, text):
     # Clear the clipboard
@@ -28,33 +29,44 @@ def request_gpt(model=None, text="", temperature=0.5):
     with open(openaiapi_path, 'r') as f:
         openai.api_key = f.read().strip()
 
+    
     with open(model_path, 'r') as f:
         model = f.read().strip()
     
-    
     models = request_models()
+    if model is None or model not in models:
+        model = select_item_from_list(models)
+        with open(model_path, 'w') as f:
+            f.write(model)
+           
+    retrieve_response = openai.Model.retrieve(model)    
+     
+    n_tokens = num_tokens_from_string(text)
+    tokens_limit = find_model_tokens_limit(model)
     
-    try:
-        if model is None or model not in models:
-            model = select_item_from_list(models)
-            with open(model_path, 'w') as f:
-                f.write(model)
-
-    except Exception as e:
-        print(e)
+    if tokens_limit is None:
+        tokens_limit = 4096#min
         
-                
-    retrieve_response = openai.Model.retrieve(model)
+    if n_tokens > tokens_limit:
+        text_chunks = split_text
+        total_response = ""
+        for chunk in text_chunks:
+                completion = openai.ChatCompletion.create(
+                model=model,
+                messages=[{"role": "user", "content": chunk}],
+                temperature=temperature  # Here we set the temperature
+                )
+                total_response = total_response + completion["choices"][0]["message"]["content"]
+        return total_response
+               
+    else:
+        completion = openai.ChatCompletion.create(
+         model=model,
+         messages=[{"role": "user", "content": text}],
+         temperature=temperature  # Here we set the temperature
+         )
     
-    #print(retrieve_response)
-    
-    completion = openai.ChatCompletion.create(
-      model=model,
-      messages=[{"role": "user", "content": text}],
-      temperature=temperature  # Here we set the temperature
-    )
-    
-    return completion["choices"][0]["message"]["content"]
+        return completion["choices"][0]["message"]["content"]
 
 def request_models():
     
@@ -178,6 +190,48 @@ def request_gpt_prompt(user_input,temperature = 0.5):
     root.destroy()
     
     #return response
+    
+def num_tokens_from_string(string: str, encoding_name=None:str) -> int:
+    """Returns the number of tokens in a text string."""
+    if encoding_name is None:
+        encoding_name = "cl100k_base"
+    
+    encoding = tiktoken.get_encoding(encoding_name)
+    num_tokens = len(encoding.encode(string))
+    return num_tokens
+
+def split_text(text,max_tokens):
+    text_chunks = []
+    n_chunks = math.ceil(max_tokens / num_tokens_from_string(text))
+    return split_text_in_chunks(text,n_chunks)
+    
+def split_text_in_chunks(text, n_chunks):
+    
+    # Calculate the approximate chunk size
+    chunk_size = len(text) // n_chunks
+
+    chunks = []
+    start_index = 0
+
+    # Split the text into chunks
+    for i in range(n_chunks - 1):
+        end_index = start_index + chunk_size
+
+        # Find the last dot within the chunk
+        last_dot_index = text.rfind('.', start_index, end_index)
+        if last_dot_index != -1:
+            end_index = last_dot_index + 1
+
+        # Add the chunk to the list
+        chunks.append(text[start_index:end_index])
+
+        # Move the start index to the next chunk
+        start_index = end_index
+
+    # Add the last chunk
+    chunks.append(text[start_index:])
+
+    return chunks   
 
 if __name__ == "__main__":
-    request_gpt_prompt(request_input())
+    request_gpt(request_input())
