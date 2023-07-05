@@ -1,8 +1,7 @@
 from selenium import webdriver
+from selenium.webdriver.chrome.service import Service
+from webdriver_manager.chrome import ChromeDriverManager
 import os
-
-# Specify the path to the webdriver
-webdriver_path = '/home/domenico/Desktop/PERSONAL/Projects/Chromedriverselenium'  
 
 # Specify the path to the model
 base_path = os.getcwd()
@@ -21,8 +20,11 @@ elif "4" in model:
 # Formulate the URL
 url = "https://platform.openai.com/docs/models/" + search_name
 
-# Create a new instance of the Firefox driver
-driver = webdriver.Chrome(executable_path=webdriver_path)
+# Setup Chrome Service
+webdriver_service = Service(ChromeDriverManager().install())
+
+# Create a new instance of the Chrome driver
+driver = webdriver.Chrome(service=webdriver_service)
 
 # Go to the OpenAI documentation page
 driver.get(url)
@@ -50,5 +52,4 @@ for table in models_tables:
 
 # Don't forget to close the driver
 driver.quit()
-
 
