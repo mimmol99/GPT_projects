@@ -7,6 +7,8 @@ import os
 base_path = os.getcwd()
 model_path = os.path.join(base_path,"model.txt")
 
+
+#r
 # Read the model
 with open(model_path, 'r') as f:
     model = f.read().strip()
