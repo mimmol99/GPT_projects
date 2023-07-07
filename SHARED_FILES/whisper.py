@@ -24,6 +24,7 @@ def transcript_audio(audio_path):
 def write_file(file_path, content):
     with open(file_path, 'w') as f:
         f.write(content)
+
         
 def read_file(file_path):
     if os.path.exists(file_path):

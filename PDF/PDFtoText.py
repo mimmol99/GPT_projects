@@ -9,7 +9,7 @@ parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # Add it to the Python path
 sys.path.insert(0, parent_dir)
 
-from SHARED_FILES.directory_request import request_file_path
+from SHARED_FILES.directory_request import request_file_path,request_file_paths
 from SHARED_FILES.divide_text_into_chunks import divide_text_into_chunks
 
 

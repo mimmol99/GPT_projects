@@ -5,13 +5,52 @@ import requests
 import os
 import tiktoken
 import math
+from selenium import webdriver
+from selenium.webdriver.chrome.service import Service
+from webdriver_manager.chrome import ChromeDriverManager
+from selenium.webdriver.common.by import By
+import json
+import sys
+import nltk
+from nltk.tokenize import sent_tokenize
+nltk.download('punkt')
+
+def split_text(text, max_tokens):
+    # Tokenize the text into sentences
+    sentences = sent_tokenize(text)
+
+    chunks = []
+    current_chunk = ''
+
+    for sentence in sentences:
+        # If adding the next sentence doesn't exceed the maximum token limit
+        if len(current_chunk) + len(sentence) <= max_tokens:
+            current_chunk += ' ' + sentence
+        else:
+            # Add the current chunk to the list
+            chunks.append(current_chunk.strip())
+            # Start a new chunk with the current sentence
+            current_chunk = sentence
+            
+    # Don't forget to add the last chunk
+    chunks.append(current_chunk.strip())
+
+    return chunks
+
+
+# Get the absolute path to the parent directory
+parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+# Add it to the Python path
+sys.path.insert(0, parent_dir)
 
 base_path = os.getcwd()
 model_path = os.path.join(base_path,"model.txt")
 openaiapi_path = os.path.join(base_path,"openaiapi.txt")
+models_limit_path = os.path.join(base_path,"models_limit.json")
 
 from SHARED_FILES.request_input import request_input
-from SHARED_FILES.rate_limit import find_model_tokens_limit
+#from SHARED_FILES.read_limit import find_model_tokens_limit
 
 def copy_to_clipboard(root, text):
     # Clear the clipboard
@@ -21,34 +60,42 @@ def copy_to_clipboard(root, text):
 
       
 def request_gpt(model=None, text="", temperature=0.5):
-
+    min_tokens = 2048
+    
     check_and_create_path(model_path)
     check_and_create_path(openaiapi_path)
     
-
     with open(openaiapi_path, 'r') as f:
         openai.api_key = f.read().strip()
-
-    
+ 
     with open(model_path, 'r') as f:
         model = f.read().strip()
     
     models = request_models()
+   
     if model is None or model not in models:
         model = select_item_from_list(models)
         with open(model_path, 'w') as f:
             f.write(model)
            
-    retrieve_response = openai.Model.retrieve(model)    
-     
-    n_tokens = num_tokens_from_string(text)
-    tokens_limit = find_model_tokens_limit(model)
+    models_limit = {}
     
-    if tokens_limit is None:
-        tokens_limit = 4096#min
-        
+    if os.path.exists(models_limit_path):
+        with open(models_limit_path, 'r') as json_file:
+            models_limit = json.load(json_file)
+            
+        if len(models)!=len(models_limit.keys()):
+            models_limit = find_models_tokens_limit()
+    else:
+        models_limit = find_models_tokens_limit()
+     
+    
+    retrieve_response = openai.Model.retrieve(model)        
+    n_tokens = num_tokens_from_string(text) * 2 #to leave response space  
+    tokens_limit = models_limit[model] //  2
+    
     if n_tokens > tokens_limit:
-        text_chunks = split_text
+        text_chunks = split_text(text,tokens_limit)
         total_response = ""
         for chunk in text_chunks:
                 completion = openai.ChatCompletion.create(
@@ -57,6 +104,7 @@ def request_gpt(model=None, text="", temperature=0.5):
                 temperature=temperature  # Here we set the temperature
                 )
                 total_response = total_response + completion["choices"][0]["message"]["content"]
+                
         return total_response
                
     else:
@@ -68,7 +116,67 @@ def request_gpt(model=None, text="", temperature=0.5):
     
         return completion["choices"][0]["message"]["content"]
 
-def request_models():
+def request_gpt_translation(model="text-davinci-003",text="", temperature=0.5):
+    min_tokens = 2048
+    
+    check_and_create_path(model_path)
+    check_and_create_path(openaiapi_path)
+    
+    with open(openaiapi_path, 'r') as f:
+        openai.api_key = f.read().strip()
+ 
+    with open(model_path, 'r') as f:
+        model = f.read().strip()
+    
+    models = request_models()
+   
+    if model is None or model not in models:
+        model = select_item_from_list(models)
+        with open(model_path, 'w') as f:
+            f.write(model)
+           
+    models_limit = {}
+    
+    if os.path.exists(models_limit_path):
+        with open(models_limit_path, 'r') as json_file:
+            models_limit = json.load(json_file)
+            
+        if len(models)!=len(models_limit.keys()):
+            models_limit = find_models_tokens_limit()
+    else:
+        models_limit = find_models_tokens_limit()
+     
+    
+    retrieve_response = openai.Model.retrieve(model)        
+    n_tokens = num_tokens_from_string(text) * 2 #to leave response space  
+    tokens_limit = models_limit[model]
+    
+    if n_tokens > tokens_limit:
+        text_chunks = split_text(text,tokens_limit)
+        total_response = ""
+        for chunk in text_chunks:
+                completion =  openai.Completion.create(
+  model="text-davinci-003",
+  prompt="Translate this into Italian:\n\n "+text+" \n\n.",
+  temperature=temperature,
+  top_p=1.0,
+  frequency_penalty=0.0,
+  presence_penalty=0.0)
+                total_response = total_response + completion["choices"][0]["text"]
+                
+        return total_response
+               
+    else:
+        completion = openai.Completion.create(
+  model="text-davinci-003",
+  prompt="Translate this into Italian:\n "+text+".",
+  temperature=temperature,
+  top_p=1.0,
+  frequency_penalty=0.0,
+  presence_penalty=0.0)
+        
+        return completion["choices"][0]["text"]
+def request_models_old():
     
     check_and_create_path(openaiapi_path)
     
@@ -88,6 +196,17 @@ def request_models():
     for model_dict in response.json()['data']:
        
         models.append(model_dict['id'])
+    
+    return models
+    
+def request_models():
+    
+    check_and_create_path(openaiapi_path)
+    
+    with open(openaiapi_path, 'r') as f:
+        openai.api_key = f.read().strip()# Define the headers for the request
+        
+    models = [model_dict["id"] for model_dict in openai.Model.list()["data"]]
     
     return models
    
@@ -171,6 +290,7 @@ def check_and_create_path(path):
         # destroy the root window
         root.destroy()
         
+        
 def request_gpt_prompt(user_input,temperature = 0.5):
     # Create the root window
     root = tk.Tk()
@@ -191,7 +311,7 @@ def request_gpt_prompt(user_input,temperature = 0.5):
     
     #return response
     
-def num_tokens_from_string(string: str, encoding_name=None:str) -> int:
+def num_tokens_from_string(string, encoding_name=None):
     """Returns the number of tokens in a text string."""
     if encoding_name is None:
         encoding_name = "cl100k_base"
@@ -200,11 +320,33 @@ def num_tokens_from_string(string: str, encoding_name=None:str) -> int:
     num_tokens = len(encoding.encode(string))
     return num_tokens
 
+def split_text(text, max_tokens):
+    # Tokenize the text into sentences
+    sentences = sent_tokenize(text)
+
+    chunks = []
+    current_chunk = ''
+
+    for sentence in sentences:
+        # If adding the next sentence doesn't exceed the maximum token limit
+        if len(current_chunk) + len(sentence) <= max_tokens:
+            current_chunk += ' ' + sentence
+        else:
+            # Add the current chunk to the list
+            chunks.append(current_chunk.strip())
+            # Start a new chunk with the current sentence
+            current_chunk = sentence
+            
+    # Don't forget to add the last chunk
+    chunks.append(current_chunk.strip())
+
+    return chunks
+"""
 def split_text(text,max_tokens):
     text_chunks = []
     n_chunks = math.ceil(max_tokens / num_tokens_from_string(text))
     return split_text_in_chunks(text,n_chunks)
-    
+""" 
 def split_text_in_chunks(text, n_chunks):
     
     # Calculate the approximate chunk size
@@ -233,5 +375,115 @@ def split_text_in_chunks(text, n_chunks):
 
     return chunks   
 
+def find_model_tokens_limit(model=None):
+    
+    # Read the model
+    if model is None:
+        with open(model_path, 'r') as f:
+            model = f.read().strip()
+            
+    min_tokens = 2048
+    
+    
+    # Setup Chrome Service
+    webdriver_service = Service(ChromeDriverManager().install())
+    
+    # Create a new instance of the Chrome driver
+    driver = webdriver.Chrome(service=webdriver_service)
+    # Create a new instance of the Chrome driver
+    driver = webdriver.Chrome(service=webdriver_service)
+    
+    url = "https://platform.openai.com/docs/models/" 
+
+    # Go to the OpenAI documentation page
+    driver.get(url)
+
+    # Get all tables with the class 'models-table'
+    models_tables = driver.find_elements(By.CLASS_NAME,"models-table")
+
+    max_tokens = None
+    
+    # Process the models-table objects
+    for table in models_tables:
+        # Find all rows in the table, skipping the first one (header)
+
+        rows = table.find_elements(By.CSS_SELECTOR,'tr')
+
+        for row in rows:
+
+            row_elements = row.find_elements(By.CSS_SELECTOR,"td")
+            for re in row_elements:
+                current_model = row_elements[0].text
+                if current_model == model and "token" in re.text:
+                    max_tokens = int(re.text.split(" ")[0].replace(",",""))
+                    return max_tokens
+                    
+                    
+    #close the driver
+    driver.quit()
+    
+    return min_tokens
+
+    
+def find_models_tokens_limit():
+    
+    models = request_models()
+    
+    min_tokens = 2048
+    
+    models_limit = {}
+    
+    # Setup Chrome Service
+    webdriver_service = Service(ChromeDriverManager().install())
+    
+    # Create a new instance of the Chrome driver
+    driver = webdriver.Chrome(service=webdriver_service)
+    # Create a new instance of the Chrome driver
+    driver = webdriver.Chrome(service=webdriver_service)
+    
+    url = "https://platform.openai.com/docs/models/" 
+
+    # Go to the OpenAI documentation page
+    driver.get(url)
+
+    # Get all tables with the class 'models-table'
+    models_tables = driver.find_elements(By.CLASS_NAME,"models-table")
+
+    max_tokens = None
+    
+    # Process the models-table objects
+    for table in models_tables:
+        # Find all rows in the table, skipping the first one (header)
+
+        rows = table.find_elements(By.CSS_SELECTOR,'tr')
+
+        for row in rows:
+
+            row_elements = row.find_elements(By.CSS_SELECTOR,"td")
+            for re in row_elements:
+                current_model = row_elements[0].text
+                if current_model in models and "token" in re.text:
+                    max_tokens = int(re.text.split(" ")[0].replace(",",""))
+                    models_limit[current_model]= max_tokens 
+                    #print(models_limit)
+                    
+    #close the driver
+    driver.quit()
+    
+    for model in models:
+        if model not in models_limit.keys():
+            models_limit[model]= min_tokens  
+       
+            
+    
+    #print(models_limit)
+    
+    with open(models_limit_path, 'w') as json_file:
+        json.dump(models_limit, json_file)
+
+    return models_limit
+    
+    
+    
 if __name__ == "__main__":
-    request_gpt(request_input())
+    print(request_gpt_translation(model="ada",text="As of March 1, 2023, data sent to the OpenAI API will not be used to train or improve OpenAI models (unless you explitly opt in). One advantage to opting in is that the models may get better at your use case over time."))

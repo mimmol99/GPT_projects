@@ -38,6 +38,23 @@ def convert_wmf_to_png(wmf_bytes):
     )
     return process.stdout
     
+def pptx_to_text(file_path):
+    prs = Presentation(file_path)
+    name_prs = os.path.basename(file_path).split(".")[0]
+    slides = prs.slides
+    total_text = ""
+    # Add tqdm progress bar for the loop
+    
+    for idx, slide in enumerate(slides, 1):
+        for shape in slide.shapes:
+            if shape.has_text_frame:
+                # Remove non-XML compatible characters
+                text = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f]', '', shape.text_frame.text)                                  
+                total_text += text
+        
+            
+    return total_text
+    
 def explain_pptx(file_path):
     prs = Presentation(file_path)
     name_prs = os.path.basename(file_path).split(".")[0]
