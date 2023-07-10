@@ -59,7 +59,7 @@ def copy_to_clipboard(root, text):
     root.clipboard_append(text)
 
       
-def request_gpt(model=None, text="", temperature=0.5):
+def request_gpt(model=None, request_phrase = "",text="", temperature=0.5):
     min_tokens = 2048
     
     check_and_create_path(model_path)
@@ -100,17 +100,18 @@ def request_gpt(model=None, text="", temperature=0.5):
         for chunk in text_chunks:
                 completion = openai.ChatCompletion.create(
                 model=model,
-                messages=[{"role": "user", "content": chunk}],
+                messages=[{"role": "user", "content":request_phrase+ chunk}],
                 temperature=temperature  # Here we set the temperature
                 )
                 total_response = total_response + completion["choices"][0]["message"]["content"]
+                openai.Model.retrieve(model)
                 
         return total_response
                
     else:
         completion = openai.ChatCompletion.create(
          model=model,
-         messages=[{"role": "user", "content": text}],
+         messages=[{"role": "user", "content":request_phrase+ text}],
          temperature=temperature  # Here we set the temperature
          )
     

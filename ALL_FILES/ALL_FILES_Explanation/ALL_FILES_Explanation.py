@@ -29,17 +29,17 @@ def main():
         if f_path.endswith(".txt"):
             total_text = text_explanation(path_text=f_path)
             #total_text = text_explanation(text=total_text,request_phrase="traduci in italiano: ")
-            #total_text  = request_gpt_translation(model="ada",text=total_text)
+            #total_text  = request_gpt_translation(model="curie",text=total_text)
         elif f_path.endswith(".pptx"):
             total_text = pptx_to_text(f_path)
             total_text = text_explanation(text=total_text)
             #total_text = text_explanation(text=total_text,request_phrase="traduci in italiano: ")
-            #total_text  = request_gpt_translation(model="ada",text=total_text)
+            #total_text  = request_gpt_translation(model="curie",text=total_text)
         elif f_path.endswith(".pdf"):
             total_text = pdf_to_text(f_path)
             total_text = text_explanation(text=total_text)
             #total_text = text_explanation(text=total_text,request_phrase="traduci in italiano: ")
-            #total_text  = request_gpt_translation(model="ada",text=total_text)
+            #total_text  = request_gpt_translation(model="curie",text=total_text)
         else:
             continue
 

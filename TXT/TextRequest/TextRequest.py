@@ -12,7 +12,7 @@ from SHARED_FILES.directory_request import request_file_path,request_folder_path
 from SHARED_FILES.divide_text_into_chunks import divide_text_into_chunks
 from SHARED_FILES.request_gpt import request_gpt
 
-def text_explanation(text=None,path_text=None,request_phrase=None):
+def text_request(r_phrase = None,text=None,path_text=None,request_phrase=None):
     if text is None and (path_text is None or os.path.exists(path_text) is False):
         
         #while not path_text.endswith(".txt"):
@@ -23,15 +23,21 @@ def text_explanation(text=None,path_text=None,request_phrase=None):
         # read the file content
             text = file.read()  
     #print("asking explanation")
-    if not request_phrase:
-        request_phrase = "Spiega e approfondisci il seguente testo come se fosse un libro da far leggere ad uno studente: "
-    response = request_gpt(model=None,request_phrase = request_phrase,text=text)
+    
+    response = request_gpt(model=None,request_phrase = r_phrase,text=text)
     
     return response
 
 
 if __name__ == "__main__":
-    text = text_explanation()
+    file_path = request_file_path()
+    
+    with open(file_path, 'r') as f:
+    # read the file content
+        text = f.read()
+        
+    
+    response = text_request(r_phrase = "Genera delle domande a partire dal seguente testo: ",text = text)
     with open("./out.txt", 'w') as file:
     # read the file content
-        file.write(text)
+        file.write(response)
