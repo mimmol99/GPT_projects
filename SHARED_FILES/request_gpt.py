@@ -1,3 +1,4 @@
+import re
 import time
 import openai
 import tkinter as tk
@@ -17,6 +18,7 @@ from nltk.tokenize import sent_tokenize
 import PyPDF2
 from docx import Document
 from tqdm import tqdm
+from pptx import Presentation
 nltk.download('punkt')
 
 # Get the absolute path to the parent directory
@@ -38,7 +40,7 @@ class GPTRequester:
         self.openaiapi_path = os.path.join(self.base_path,"openaiapi.txt")
         self.check_and_create_path(self.model_path)
         self.check_and_create_path(self.openaiapi_path)
-        self.file_extensions_available = [".txt",".doc",".docx",".pdf"]
+        self.file_extensions_available = [".txt",".doc",".docx",".pdf",".pptx"]
 
         with open(self.openaiapi_path, 'r') as f:
             openai.api_key = f.read().strip()
@@ -371,6 +373,8 @@ class GPTRequester:
     def file_to_text(self,file_path):
         _, file_extension = os.path.splitext(file_path)
 
+        text = ""
+
         if file_extension in self.file_extensions_available:
             if file_extension == ".pdf":
                 text = self.pdf_to_text(file_path)
@@ -378,6 +382,8 @@ class GPTRequester:
                 text = self.docx_to_text(file_path)
             elif file_extension == ".txt":
                 text = self.txt_to_text(file_path)
+            elif file_extension == ".pptx":
+                text = self.pptx_to_text(file_path)
         else:
             print(f"File type {file_extension} is not supported. Supported: {self.file_extensions_available}")
             return None
@@ -399,12 +405,21 @@ class GPTRequester:
             
         return text
 
-    def docx_to_text(path):
+    def docx_to_text(self,path):
         doc = Document(path)
         fullText = []
         for paragraph in doc.paragraphs:
             fullText.append(paragraph.text)
         return '\n'.join(fullText)
+
+    def pptx_to_text(self,path):
+        pres = Presentation(path)
+        text = ''
+        for slide in pres.slides:
+            for shape in slide.shapes:
+                if hasattr(shape, "text"):
+                    text += shape.text
+        return text
     
 
     def request_all_files(self,model=None,request_phrase="",document_name="output"):
@@ -423,11 +438,11 @@ class GPTRequester:
             document.add_heading(document_name, level=1)
             document.add_paragraph(response)
 
-        document.save("./out.docx")
+        document.save(document_name+".docx")
     
     
     
 if __name__ == "__main__":
     #print(request_gpt_translation(model="ada",text="As of March 1, 2023, data sent to the OpenAI API will not be used to train or improve OpenAI models (unless you explitly opt in). One advantage to opting in is that the models may get better at your use case over time."))
     requester = GPTRequester()
-    requester.request_all_files(request_phrase=request_string("Insert gpt prompt"),document_name="insert output document name")
+    requester.request_all_files(request_phrase=request_string("Insert gpt prompt"),document_name=request_string("insert document name"))
