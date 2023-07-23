@@ -7,7 +7,7 @@ from divide_audio import divide_audio
 from request_gpt import request_gpt
 from docx import Document
 from docx.shared import Inches
-from directory_request import request_file_path,request_file_paths
+from SHARED_FILES.graphic_request import request_file_path,request_file_paths
 from tkinter import Tk,simpledialog,filedialog
 
 

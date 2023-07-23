@@ -15,24 +15,25 @@ import json
 import sys
 import nltk
 from nltk.tokenize import sent_tokenize
-import PyPDF2
+from file_to_txt import file_to_text
+from graphic_request import request_string,request_file_paths,select_item_from_list
+from pptx import Presentation
 from docx import Document
 from tqdm import tqdm
-from pptx import Presentation
+
 nltk.download('punkt')
 
 # Get the absolute path to the parent directory
-parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+#parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 # Add it to the Python path
-sys.path.insert(0, parent_dir)
+#sys.path.insert(0, parent_dir)
 
 
-from SHARED_FILES.directory_request import request_string,request_file_paths
+
 
 class GPTRequester:
     
-
     def __init__(self) -> None:
         
         self.base_path = os.getcwd()
@@ -40,7 +41,6 @@ class GPTRequester:
         self.openaiapi_path = os.path.join(self.base_path,"openaiapi.txt")
         self.check_and_create_path(self.model_path)
         self.check_and_create_path(self.openaiapi_path)
-        self.file_extensions_available = [".txt",".doc",".docx",".pdf",".pptx"]
 
         with open(self.openaiapi_path, 'r') as f:
             openai.api_key = f.read().strip()
@@ -55,14 +55,11 @@ class GPTRequester:
 
         
     def request_gpt(self,model=None, request_phrase = "",text="", temperature=0.5):
-        min_tokens = 2048
-        
-
         
         models = self.request_models()
     
         if model is None or model not in models:
-            model = self.select_item_from_list(models)
+            model = select_item_from_list(models)
             with open(self.model_path, 'w') as f:
                 f.write(model)
             
@@ -91,8 +88,9 @@ class GPTRequester:
                         completion = openai.ChatCompletion.create(
                         model=model,
                         messages=[{"role": "user", "content":request_phrase+ chunk}],
-                        temperature=temperature  # Here we set the temperature
+                        temperature=temperature
                         )
+
                         total_response = total_response + completion["choices"][0]["message"]["content"]
                         openai.Model.retrieve(model)
                     except ServiceUnavailableError:
@@ -106,8 +104,9 @@ class GPTRequester:
                 completion = openai.ChatCompletion.create(
                 model=model,
                 messages=[{"role": "user", "content":request_phrase+text}],
-                temperature=temperature  # Here we set the temperature
+                temperature=temperature
                 )
+                
                 response = completion["choices"][0]["message"]["content"]
                 openai.Model.retrieve(model)
             except ServiceUnavailableError:
@@ -123,7 +122,7 @@ class GPTRequester:
         models = self.request_models()
     
         if model is None or model not in models:
-            model = self.select_item_from_list(models)
+            model = select_item_from_list(models)
             with open(self.model_path, 'w') as f:
                 f.write(model)
             
@@ -169,47 +168,18 @@ class GPTRequester:
             
             return completion["choices"][0]["text"]
         
-    def select_item_from_list(self,item_list):
-        # Create the root window
-        root = tk.Tk()
-        root.title('Select an item')
-        
-        # Create a StringVar() to store the selected item
-        selected_item = tk.StringVar()
-
-        # Create a Listbox widget
-        listbox = tk.Listbox(root, exportselection=0, width=50,height=20)
-        for item in item_list:
-            listbox.insert(tk.END, item)
-        listbox.pack()
-
-        # Function to handle item selection
-        def on_select(event):
-            # Check if an item is selected
-            if listbox.curselection():
-                # Get selected item
-                selection = event.widget.get(event.widget.curselection())
-                selected_item.set(selection)
-                # Show a message box with the selected item
-                messagebox.showinfo("Selection", f"You selected: {selection}")
-                # Close the window after selection
-                root.withdraw()
-                
-                
+    def request_models(self):
     
-        # Bind the select function to the listbox selection event
-        listbox.bind('<<ListboxSelect>>', on_select)
+        self.check_and_create_path(self.openaiapi_path)
         
-        # Run the tkinter event loop
-        root.mainloop()
+        with open(self.openaiapi_path, 'r') as f:
+            openai.api_key = f.read().strip()# Define the headers for the request
+            
+        models = [model_dict["id"] for model_dict in openai.Model.list()["data"]]
         
-        root.destroy()
-        
-        # Return the selected item
-        return selected_item.get()
-        
-        
-    def check_and_create_path(self,path):
+        return models
+   
+    def check_and_create_path(self,path,askstring=" What text do you want to write to the file?"):
         if not os.path.exists(path):
             # create a root window
             root = tk.Tk()
@@ -219,7 +189,7 @@ class GPTRequester:
             create_path = messagebox.askyesno(path+" does not exist", "Do you want to create the path?")
             if create_path:
                 # get the text to write to the file
-                text = simpledialog.askstring("Input", "What text do you want to write to the file?")
+                text = simpledialog.askstring("Input",askstring)
                 
                 # create the path and write the text to it
                 os.makedirs(os.path.dirname(path), exist_ok=True)
@@ -370,56 +340,7 @@ class GPTRequester:
         return models_limit
     
 
-    def file_to_text(self,file_path):
-        _, file_extension = os.path.splitext(file_path)
 
-        text = ""
-
-        if file_extension in self.file_extensions_available:
-            if file_extension == ".pdf":
-                text = self.pdf_to_text(file_path)
-            elif file_extension in [".doc", ".docx"]:
-                text = self.docx_to_text(file_path)
-            elif file_extension == ".txt":
-                text = self.txt_to_text(file_path)
-            elif file_extension == ".pptx":
-                text = self.pptx_to_text(file_path)
-        else:
-            print(f"File type {file_extension} is not supported. Supported: {self.file_extensions_available}")
-            return None
-
-        return text
-
-    def txt_to_text(self,path):
-        with open(path, 'r') as file:
-            return file.read()
-
-    def pdf_to_text(self,file_path):
-        with open(file_path, 'rb') as file:
-            reader = PyPDF2.PdfReader(file)
-            num_pages = len(reader.pages)
-            text = ''
-            
-            for page in reader.pages:
-                text += page.extract_text()
-            
-        return text
-
-    def docx_to_text(self,path):
-        doc = Document(path)
-        fullText = []
-        for paragraph in doc.paragraphs:
-            fullText.append(paragraph.text)
-        return '\n'.join(fullText)
-
-    def pptx_to_text(self,path):
-        pres = Presentation(path)
-        text = ''
-        for slide in pres.slides:
-            for shape in slide.shapes:
-                if hasattr(shape, "text"):
-                    text += shape.text
-        return text
     
 
     def request_all_files(self,model=None,request_phrase="",document_name="output"):
@@ -432,7 +353,7 @@ class GPTRequester:
         for f_path in pbar:
             base_name = os.path.basename(f_path).split(".")[0]
             pbar.set_description(f"Processing {base_name}")
-            text = self.file_to_text(f_path)
+            text = file_to_text(f_path)
             if text is None:continue
             response = requester.request_gpt(model = None,request_phrase=request_phrase,text=text)
             document.add_heading(document_name, level=1)

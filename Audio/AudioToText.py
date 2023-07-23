@@ -14,7 +14,7 @@ sys.path.insert(0, parent_dir)
 
 from SHARED_FILES.divide_audio import divide_audio
 from SHARED_FILES.request_gpt import request_gpt,transcript_audio
-from SHARED_FILES.directory_request import request_file_paths
+from SHARED_FILES.graphic_request import request_file_paths
 from SHARED_FILES.recognize_speech import audio_text
 
 from tqdm import tqdm
