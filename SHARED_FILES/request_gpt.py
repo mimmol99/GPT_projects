@@ -16,10 +16,15 @@ import sys
 import nltk
 from nltk.tokenize import sent_tokenize
 from file_to_txt import file_to_text
-from graphic_request import request_string,request_file_paths,select_item_from_list
+from graphic_request import request_string,request_file_paths
 from pptx import Presentation
 from docx import Document
 from tqdm import tqdm
+from pydub import AudioSegment
+from pydub.silence import split_on_silence
+import magic
+
+
 
 nltk.download('punkt')
 
@@ -53,15 +58,20 @@ class GPTRequester:
         if not os.path.exists(self.models_limit_path):
             self.find_models_tokens_limit()
 
+        self.previous_messages = []
+
         
     def request_gpt(self,model=None, request_phrase = "",text="", temperature=0.5):
         
         models = self.request_models()
     
-        if model is None or model not in models:
-            model = select_item_from_list(models)
-            with open(self.model_path, 'w') as f:
-                f.write(model)
+        if model is None:
+            model = self.model
+            if model not in models:              
+                model = self.select_item_from_list(models)
+                self.model =  model
+                with open(self.model_path, 'w') as f:
+                    f.write(model)
             
         models_limit = {}
         
@@ -74,7 +84,7 @@ class GPTRequester:
         else:
             models_limit = self.find_models_tokens_limit()
         
-  
+        
         openai.Model.retrieve(model)   
 
         n_tokens = self.num_tokens_from_string(text) * 2 #to leave response space  
@@ -90,10 +100,11 @@ class GPTRequester:
                         messages=[{"role": "user", "content":request_phrase+ chunk}],
                         temperature=temperature
                         )
-
-                        total_response = total_response + completion["choices"][0]["message"]["content"]
+                        response = completion["choices"][0]["message"]["content"]
+                        
+                        total_response = total_response + response
                         openai.Model.retrieve(model)
-                    except ServiceUnavailableError:
+                    except:
                         time.sleep(10)
                         total_response = total_response + self.request_gpt(model=model, request_phrase = request_phrase,text=chunk, temperature=0.5)
                     
@@ -108,8 +119,9 @@ class GPTRequester:
                 )
                 
                 response = completion["choices"][0]["message"]["content"]
+                
                 openai.Model.retrieve(model)
-            except ServiceUnavailableError:
+            except:
                 time.sleep(10)
                 response = self.request_gpt(model=model, request_phrase = request_phrase,text=text, temperature=0.5)
 
@@ -122,7 +134,7 @@ class GPTRequester:
         models = self.request_models()
     
         if model is None or model not in models:
-            model = select_item_from_list(models)
+            model = self.select_item_from_list(models)
             with open(self.model_path, 'w') as f:
                 f.write(model)
             
@@ -339,9 +351,45 @@ class GPTRequester:
 
         return models_limit
     
+    def select_item_from_list(self,item_list):
+        # Create the root window
+        root = tk.Tk()
+        root.title('Select an item')
 
+        # Create a StringVar() to store the selected item
+        selected_item = tk.StringVar()
 
-    
+        # Create a Listbox widget
+        listbox = tk.Listbox(root, exportselection=0, width=50,height=20)
+        for item in item_list:
+            listbox.insert(tk.END, item)
+            listbox.pack()
+
+        # Function to handle item selection
+        def on_select(event):
+        # Check if an item is selected
+            if listbox.curselection():
+                # Get selected item
+                selection = event.widget.get(event.widget.curselection())
+                selected_item.set(selection)
+                # Show a message box with the selected item
+                messagebox.showinfo("Selection", f"Selected: {selection}")
+                # Close the window after selection
+                root.withdraw()
+            
+            
+
+        # Bind the select function to the listbox selection event
+        listbox.bind('<<ListboxSelect>>', on_select)
+
+        # Run the tkinter event loop
+        root.mainloop()
+
+        root.destroy()
+
+        # Return the selected item
+        return selected_item.get()
+
 
     def request_all_files(self,model=None,request_phrase="",document_name="output"):
 
@@ -353,13 +401,44 @@ class GPTRequester:
         for f_path in pbar:
             base_name = os.path.basename(f_path).split(".")[0]
             pbar.set_description(f"Processing {base_name}")
-            text = file_to_text(f_path)
+
+            if self.is_audio_file(f_path) is False:
+                text = file_to_text(f_path)
+            else:
+                text = self.transcript_audio(f_path)
+            
             if text is None:continue
             response = requester.request_gpt(model = None,request_phrase=request_phrase,text=text)
-            document.add_heading(document_name, level=1)
+            print(response)
+            #response = text
+            document.add_heading(base_name, level=1)
             document.add_paragraph(response)
 
         document.save(document_name+".docx")
+        
+    def transcript_audio(self,audio_path):
+        audio_file= open(audio_path, "rb")
+        transcript = openai.Audio.transcribe("whisper-1", audio_file)
+        text = transcript["text"]
+        return text
+    
+    
+    def merge_audio_files(self,audio_paths):
+        format_audio = os.path.basename(audio_paths[0]).split(".")[1]
+        combined_audio = AudioSegment.from_file(audio_paths[0], format=format_audio)
+            
+        for audio in audio_paths[1:]:
+            format_audio = os.path.basename(audio).split(".")[1]
+            combined_audio+=AudioSegment.from_file(audio, format=format_audio)
+            
+        combined_audio.export("./combined_audio."+str(format_audio),format=format_audio)
+        audio_path = "./combined_audio."+str(format_audio)
+        return audio_path
+    
+    def is_audio_file(self,filepath):
+        mime = magic.Magic(mime=True)
+        mime_type = mime.from_file(filepath)
+        return mime_type.startswith('audio/')
     
     
     

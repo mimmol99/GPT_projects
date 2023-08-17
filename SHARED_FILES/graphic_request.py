@@ -55,41 +55,4 @@ def request_string(title=None):
     # Print the entered string
     return string
 
-def select_item_from_list(item_list):
-    # Create the root window
-    root = tk.Tk()
-    root.title('Select an item')
-    
-    # Create a StringVar() to store the selected item
-    selected_item = tk.StringVar()
 
-    # Create a Listbox widget
-    listbox = tk.Listbox(root, exportselection=0, width=50,height=20)
-    for item in item_list:
-        listbox.insert(tk.END, item)
-    listbox.pack()
-
-    # Function to handle item selection
-    def on_select(event):
-        # Check if an item is selected
-        if listbox.curselection():
-            # Get selected item
-            selection = event.widget.get(event.widget.curselection())
-            selected_item.set(selection)
-            # Show a message box with the selected item
-            messagebox.showinfo("Selection", f"You selected: {selection}")
-            # Close the window after selection
-            root.withdraw()
-            
-            
-
-    # Bind the select function to the listbox selection event
-    listbox.bind('<<ListboxSelect>>', on_select)
-    
-    # Run the tkinter event loop
-    root.mainloop()
-    
-    root.destroy()
-    
-    # Return the selected item
-    return selected_item.get()

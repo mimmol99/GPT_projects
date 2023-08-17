@@ -10,7 +10,7 @@ def file_to_text(file_path):
 
     text = ""
 
-    file_extensions_available = [".pdf",".doc","docx",".txt",".pptx"]
+    file_extensions_available = [".pdf",".doc",".docx",".txt",".pptx"]
 
     if file_extension in file_extensions_available:
         if file_extension == ".pdf":
@@ -38,6 +38,7 @@ def pdf_to_text(file_path):
         text = ''
         
         for page in reader.pages:
+            #print("page:",page,"text:",text)
             text += page.extract_text()
         
     return text
