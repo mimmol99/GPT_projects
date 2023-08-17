@@ -1,2 +1,2 @@
 # GPT_projects
-Some projects based on GPT-Api as TextSummarization,TextTranslation,AudioToText,PDFtoText,PPT_transcription,PPT_explanation,PPT_translation..
+To run the program, run the request_gpt.py file in the SHARED_FILES folder
