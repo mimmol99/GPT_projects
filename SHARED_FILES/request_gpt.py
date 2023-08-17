@@ -58,9 +58,22 @@ class GPTRequester:
         if not os.path.exists(self.models_limit_path):
             self.find_models_tokens_limit()
 
-        self.previous_messages = []
+        self.messages = []
 
         
+    def add_messages(self,message_dict):
+
+        if message_dict not in self.messages:
+            self.messages.append(message_dict)
+
+        length_messages = sum(self.num_tokens_from_string(dict["content"]) for dict in self.messages if 'content' in dict)
+        
+        while length_messages*2 > self.tokens_limit//2 and len(self.messages)>1:
+            self.messages.pop(0)
+            length_messages = sum(self.num_tokens_from_string(dict["content"]) for dict in self.messages if 'content' in dict)
+
+
+
     def request_gpt(self,model=None, request_phrase = "",text="", temperature=0.5):
         
         models = self.request_models()
@@ -88,20 +101,23 @@ class GPTRequester:
         openai.Model.retrieve(model)   
 
         n_tokens = self.num_tokens_from_string(text) * 2 #to leave response space  
-        tokens_limit = models_limit[model] //  2
+        self.tokens_limit = models_limit[model] //  2
         
-        if n_tokens > tokens_limit:
-            text_chunks = self.split_text(text,tokens_limit)
+        if n_tokens > self.tokens_limit:
+            text_chunks = self.split_text(text,self.tokens_limit)
             total_response = ""
             for chunk in text_chunks:
+                    message_request = {"role": "user", "content":request_phrase+ chunk}
+                    self.add_messages(message_request)
                     try:
                         completion = openai.ChatCompletion.create(
-                        model=model,
-                        messages=[{"role": "user", "content":request_phrase+ chunk}],
-                        temperature=temperature
-                        )
+                        model=model, 
+                        messages=self.messages,
+                        temperature=temperature)
+
                         response = completion["choices"][0]["message"]["content"]
-                        
+                        message_response = {"role": "assistant", "content":response}
+                        self.add_messages(message_response)
                         total_response = total_response + response
                         openai.Model.retrieve(model)
                     except:
@@ -111,15 +127,18 @@ class GPTRequester:
             return total_response
                 
         else:
+            message_request = {"role": "user", "content":request_phrase+text}
+            self.add_messages(message_request)
             try:
                 completion = openai.ChatCompletion.create(
                 model=model,
-                messages=[{"role": "user", "content":request_phrase+text}],
+                messages=self.messages,
                 temperature=temperature
                 )
                 
                 response = completion["choices"][0]["message"]["content"]
-                
+                message_response = {"role": "assistant", "content":response}
+                self.add_messages(message_response)
                 openai.Model.retrieve(model)
             except:
                 time.sleep(10)
@@ -152,10 +171,10 @@ class GPTRequester:
         
         retrieve_response = openai.Model.retrieve(model)        
         n_tokens = self.num_tokens_from_string(text) * 2 #to leave response space  
-        tokens_limit = models_limit[model]
+        self.tokens_limit = models_limit[model]
         
-        if n_tokens > tokens_limit:
-            text_chunks = self.split_text(text,tokens_limit)
+        if n_tokens > self.tokens_limit:
+            text_chunks = self.split_text(text,self.tokens_limit)
             total_response = ""
             for chunk in text_chunks:
                     completion =  openai.Completion.create(
@@ -409,18 +428,43 @@ class GPTRequester:
             
             if text is None:continue
             response = requester.request_gpt(model = None,request_phrase=request_phrase,text=text)
-            print(response)
-            #response = text
+
             document.add_heading(base_name, level=1)
             document.add_paragraph(response)
 
         document.save(document_name+".docx")
         
-    def transcript_audio(self,audio_path):
-        audio_file= open(audio_path, "rb")
-        transcript = openai.Audio.transcribe("whisper-1", audio_file)
-        text = transcript["text"]
-        return text
+    
+    def transcript_audio(self, audio_path, chunk_length=120000):  # Default chunk length is 30 seconds (30000 ms)
+    # Load the audio file (pydub will detect the format based on the file extension)
+        audio = AudioSegment.from_file(audio_path)
+        
+        # Calculate the number of chunks
+        num_chunks = len(audio) // chunk_length + (1 if len(audio) % chunk_length else 0)
+        
+        full_transcript = ""
+
+        for i in range(num_chunks):
+            # Extract a chunk of audio
+            start_time = i * chunk_length
+            end_time = (i + 1) * chunk_length
+            chunk = audio[start_time:end_time]
+
+            # Save the chunk to a temporary file
+            temp_filename = f"temp_chunk_{i}.wav"
+            chunk.export(temp_filename, format="wav")
+
+            # Transcribe the chunk
+            with open(temp_filename, "rb") as audio_file:
+                transcript = openai.Audio.transcribe("whisper-1", audio_file)
+                full_transcript += transcript["text"] + " "
+
+            # Optionally, delete the temporary file after transcription
+            os.remove(temp_filename)
+
+        return full_transcript.strip()
+    
+
     
     
     def merge_audio_files(self,audio_paths):
